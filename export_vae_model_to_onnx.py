@@ -1,6 +1,6 @@
 import torch
 
-from interactive_interpolation import VariationalAutoencoder
+from interactive_program import VariationalAutoencoder
 
 # Load the VAE model
 input_dim = 1 * 28 * 28
