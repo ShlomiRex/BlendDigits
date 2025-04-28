@@ -18,6 +18,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 batch_size = 16
 
 # Load the model
+print("Loading VAE model (vae_model.pth)...")
 vae = VariationalAutoencoder(input_dim, hidden_dim, latent_dim).to(device)
 vae.load_state_dict(torch.load("vae_model.pth", map_location=device))
 vae.eval()
