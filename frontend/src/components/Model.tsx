@@ -6,6 +6,7 @@ function Model() {
     const [inputImage1, setInputImage1] = useState<string>('/mnist/1/1_1.png');
     const [inputImage2, setInputImage2] = useState<string>('/mnist/2/2_1.png');
     const [session, setSession] = useState<ort.InferenceSession | null>(null);
+    const [interpolation, setInterpolation] = useState<number>(0.5);
 
     // Function to load the ONNX model
     useEffect(() => {
@@ -13,101 +14,87 @@ function Model() {
             console.log('Loading ONNX model...');
             const modelSession = await ort.InferenceSession.create('model.onnx');
             console.log('Model loaded');
-            setSession(modelSession); // Store the session for later inference
+            setSession(modelSession);
         }
 
         loadModel();
     }, []);
 
-    // Function to load and preprocess image
     const loadImageAsTensor = async (imageUrl: string): Promise<ort.Tensor> => {
         const image = new Image();
         image.src = imageUrl;
-
-        // Wait for the image to load
         await new Promise((resolve) => {
             image.onload = resolve;
         });
 
-        // Create a canvas to draw the image
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         if (!ctx) {
             throw new Error('Failed to get canvas context');
         }
 
-        // Set the canvas size to match the image size (28x28 for MNIST)
         canvas.width = 28;
         canvas.height = 28;
-
-        // Draw the image onto the canvas, scaling it to fit the 28x28 size
         ctx.drawImage(image, 0, 0, 28, 28);
 
-        // Get the image data from the canvas
         const imageData = ctx.getImageData(0, 0, 28, 28);
         const data = imageData.data;
 
-        // Normalize the image data (grayscale and normalize to [0, 1])
         const tensorData = new Float32Array(28 * 28);
         for (let i = 0; i < data.length; i += 4) {
-            // Convert the pixel to grayscale (average of R, G, and B)
             const grayscale = (data[i] + data[i + 1] + data[i + 2]) / 3;
-            tensorData[i / 4] = grayscale / 255; // Normalize to [0, 1]
+            tensorData[i / 4] = grayscale / 255;
         }
 
-        // Return the image as an ONNX tensor
         return new ort.Tensor('float32', tensorData, [1, 1, 28, 28]);
     };
 
-    // Function to run inference with two input tensors
-    const runInference = async (tensor1: ort.Tensor, tensor2: ort.Tensor) => {
-        if (session) {
-            // Example load of latent vector from a JSON file
-            const response = await fetch('/latent_vector.json');
-            const latentArray = await response.json();
-            const flatLatent = new Float32Array(latentArray.flat());
-            const latentTensor = new ort.Tensor('float32', flatLatent, [1, latentArray[0].length]);
-
-            console.log('Latent tensor shape:', latentTensor.dims);
-            console.log('Latent tensor data:', latentTensor.data);
-
-            console.log('Running inference...');
-
-            const result = await session.run({ input: latentTensor });
-            console.log('Inference completed');
-            console.log('Result:', result);
-            setOutput(result); // Store the result for rendering
-        } else {
-            console.error('Model session is not loaded yet');
-        }
+    const squeeze = (tensor: ort.Tensor, dim: number): ort.Tensor => {
+        const newDims = tensor.dims.filter((_, idx) => idx !== dim);
+        return new ort.Tensor(tensor.type, tensor.data, newDims);
     };
 
-    // Example of how to run inference with the given images
+    // Updated runInference: no arguments!
+    const runInference = async () => {
+        if (!session) {
+            console.error('Model session not loaded');
+            return;
+        }
+
+        const tensor1 = await loadImageAsTensor(inputImage1);
+        const tensor2 = await loadImageAsTensor(inputImage2);
+
+        const squeezed1 = squeeze(tensor1, 0);
+        const squeezed2 = squeeze(tensor2, 0);
+
+        console.log("Running inference with interpolation =", interpolation);
+
+        const input: Record<string, ort.Tensor> = {
+            "input_img1": squeezed1,
+            "input_img2": squeezed2,
+            "interpolation": new ort.Tensor('float64', [interpolation]),
+        };
+
+        const result = await session.run(input);
+        console.log('Inference completed');
+        setOutput(result);
+    };
+
+    // Run once after session is ready
     useEffect(() => {
         if (session) {
-            // Load and preprocess the images into tensors
-            const loadAndRunInference = async () => {
-                const tensor1 = await loadImageAsTensor(inputImage1);
-                const tensor2 = await loadImageAsTensor(inputImage2);
-
-                // Run inference with the loaded tensors
-                runInference(tensor1, tensor2);
-            };
-
-            loadAndRunInference();
+            runInference();
         }
     }, [session, inputImage1, inputImage2]);
 
     // Function to convert output tensor to image data (base64)
     const convertTensorToImage = (outputTensor: any) => {
-        console.log('Converting tensor to image...');
         const outputData = outputTensor.cpuData;
-        const size = Math.sqrt(outputData.length); // In this case, 28x28
+        const size = Math.sqrt(outputData.length);
         const canvas = document.createElement('canvas');
         canvas.width = size;
         canvas.height = size;
         const ctx = canvas.getContext('2d');
-
         if (!ctx) {
             console.error('Failed to get canvas context');
             return null;
@@ -116,11 +103,11 @@ function Model() {
         const imageData = ctx.createImageData(size, size);
 
         for (let i = 0; i < outputData.length; i++) {
-            const value = outputData[i] * 255; // Convert to range [0, 255]
-            imageData.data[i * 4] = value; // Red
-            imageData.data[i * 4 + 1] = value; // Green
-            imageData.data[i * 4 + 2] = value; // Blue
-            imageData.data[i * 4 + 3] = 255; // Alpha
+            const value = outputData[i] * 255;
+            imageData.data[i * 4] = value;
+            imageData.data[i * 4 + 1] = value;
+            imageData.data[i * 4 + 2] = value;
+            imageData.data[i * 4 + 3] = 255;
         }
 
         ctx.putImageData(imageData, 0, 0);
@@ -130,20 +117,50 @@ function Model() {
 
     const outputImage = output ? convertTensorToImage(output['output']) : null;
 
+    const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = parseFloat(e.target.value);
+        setInterpolation(value);
+    };
+
+    // Whenever interpolation changes, rerun inference
+    useEffect(() => {
+        if (session) {
+            runInference();
+        }
+    }, [interpolation]);
+
     return (
-        <div className="image-container" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-            <div className="image-item" style={{ margin: '10px' }}>
-                <img src={inputImage1} alt="Input 1" style={{ width: '100px', height: '100px' }} />
+        <div style={{ width: '100%' }}>
+            {/* Images */}
+            <div className="image-container" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                <div className="image-item" style={{ margin: '10px' }}>
+                    <img src={inputImage1} alt="Input 1" style={{ width: '100px', height: '100px' }} />
+                </div>
+                <div className="image-item" style={{ margin: '10px' }}>
+                    {outputImage ? (
+                        <img src={outputImage} alt="Model Output" style={{ width: '100px', height: '100px' }} />
+                    ) : (
+                        <p>Loading...</p>
+                    )}
+                </div>
+                <div className="image-item" style={{ margin: '10px' }}>
+                    <img src={inputImage2} alt="Input 2" style={{ width: '100px', height: '100px' }} />
+                </div>
             </div>
-            <div className="image-item" style={{ margin: '10px' }}>
-                {outputImage ? (
-                    <img src={outputImage} alt="Model Output" style={{ width: '100px', height: '100px' }} />
-                ) : (
-                    <p>Loading...</p>
-                )}
-            </div>
-            <div className="image-item" style={{ margin: '10px' }}>
-                <img src={inputImage2} alt="Input 2" style={{ width: '100px', height: '100px' }} />
+
+            {/* Slider */}
+            <div style={{ marginTop: '20px', textAlign: 'center' }}>
+                <label>Interpolation: {interpolation.toFixed(2)}</label>
+                <br />
+                <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={interpolation}
+                    onChange={handleSliderChange}
+                    style={{ width: '80%' }}
+                />
             </div>
         </div>
     );
