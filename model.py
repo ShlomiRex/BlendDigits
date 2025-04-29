@@ -6,6 +6,7 @@ from einops import rearrange
 class VariationalAutoencoder(nn.Module):
     def __init__(self, input_dim, hidden_dim, latent_dim, device='cpu'):
         super(VariationalAutoencoder, self).__init__()
+        self.to(device)
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.latent_dim = latent_dim
@@ -18,14 +19,14 @@ class VariationalAutoencoder(nn.Module):
         self.__setup_decoder()
     
     def __setup_encoder(self):
-        self.enc_fc1 = nn.Linear(self.input_dim, self.hidden_dim)
-        self.enc_fc2 = nn.Linear(self.hidden_dim, self.hidden_dim)
+        self.enc_fc1 = nn.Linear(self.input_dim, self.hidden_dim).to(self.device)
+        self.enc_fc2 = nn.Linear(self.hidden_dim, self.hidden_dim).to(self.device)
 
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU().to(self.device)
 
         # Now we have two layers for each vector in latent space (going from hidden_dim to latent_dim)
-        self.fc_mu = nn.Linear(self.hidden_dim, self.latent_dim)  # Mean vector
-        self.fc_logvar = nn.Linear(self.hidden_dim, self.latent_dim)  # Log-variance vector
+        self.fc_mu = nn.Linear(self.hidden_dim, self.latent_dim).to(self.device)  # Mean vector
+        self.fc_logvar = nn.Linear(self.hidden_dim, self.latent_dim).to(self.device)  # Log-variance vector
 
     def __setup_decoder(self):
         self.dec_fc1 = nn.Linear(self.latent_dim, self.hidden_dim)
@@ -67,6 +68,8 @@ class VariationalAutoencoder(nn.Module):
 
     def forward(self, x):
         assert x.shape[-3:] == (1, 28, 28)
+
+        x.to(self.device)
 
         # Encode - instead of latent vector we get mean and log_var (look at image!)
         mean, log_var = self.encode(x)
