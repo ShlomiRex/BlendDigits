@@ -7,7 +7,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 from torch import Tensor
 import tkinter.messagebox as messagebox
-from model import InterpolationModel, MNIST_VAE
+from model import InterpolationModel, MNIST_VAE, MNISTInterpolationModel
 from typing import Tuple
 
 batch_size = 16
@@ -16,19 +16,10 @@ def load_model() -> InterpolationModel:
     device = 'cpu'
     print(f"Using device: {device}")
 
-    # Load the variational autoencoder model
-    vae_model_path = "vae_model.pth"
-    print(f"Loading VAE model ('{vae_model_path}')...")
-    my_vae = MNIST_VAE().to(device).eval()
-    my_vae.load_state_dict(torch.load("vae_model.pth", map_location=device))
-    print("VAE model loaded successfully.")
-
     # Load the interpolation model
-    interpolation_model = InterpolationModel(my_vae).to(device).eval()
-
-    # Check the model
-    print("Interpolation model structure:")
-    print(interpolation_model)
+    vae_model_path = "vae_model.pth"
+    interpolation_model = MNISTInterpolationModel(vae_model_path, device).to(device).eval()
+    
     return interpolation_model
 
 def load_mnist() -> Tuple[DataLoader, MNIST]:

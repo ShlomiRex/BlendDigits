@@ -86,8 +86,6 @@ class VariationalAutoencoder(nn.Module):
 class MNIST_VAE(VariationalAutoencoder):
     def __init__(self):
         super(MNIST_VAE, self).__init__(input_dim=1*28*28, hidden_dim=400, latent_dim=200)
-
-
 class InterpolationModel(nn.Module):
     def __init__(self, vae_model):
         super(InterpolationModel, self).__init__()
@@ -118,74 +116,32 @@ class InterpolationModel(nn.Module):
 
         return interpolated_image.squeeze(0) # Remove the batch dimension only (keep channel dimension 1)
 
+class MNISTInterpolationModel(InterpolationModel):
+    def __init__(self, vae_model_path: str, device='cpu'):
+        # Load the variational autoencoder model
+        my_vae = MNIST_VAE().to(device).eval()
+        my_vae.load_state_dict(torch.load(vae_model_path, map_location=device))
+
+        # Load the interpolation model
+        interpolation_model = InterpolationModel(my_vae).to(device).eval()
+
+        super(MNISTInterpolationModel, self).__init__(interpolation_model.vae)
+
+def load_interpolation_model():
+    device = 'cpu'
+    # Load the interpolation model
+    interpolation_model = MNISTInterpolationModel("vae_model.pth").to(device).eval()
+    print(interpolation_model)
+
 def save_interpolation_model():
-    """
-    Save the model to a file.
-    """
-    # Load VAE
-    vae = VariationalAutoencoder(input_dim=1*28*28, hidden_dim=400, latent_dim=200)
-    vae.load_state_dict(torch.load("vae_model.pth", map_location='cpu'))
-    vae.to('cpu')
-    vae.eval()
+    device = 'cpu'
+    # Load the interpolation model
+    interpolation_model = MNISTInterpolationModel("vae_model.pth").to(device).eval()
+    print(interpolation_model)
 
-    # Create InterpolationModel
-    model = InterpolationModel(vae)
-    model.to('cpu')
-    model.eval()
-
-    # Save interpolation model
-    print("Saving interpolation model...")
-    torch.save(model.state_dict(), "interpolation_model.pth")
-
-def interpolation_model_example():
-    from PIL import Image
-    import torchvision.transforms as transforms
-    import matplotlib.pyplot as plt
-
-    # Example usage of the InterpolationModel saved above
-    model = InterpolationModel('cpu')
-    model.load_state_dict(torch.load("interpolation_model.pth", map_location='cpu'))
-    model.eval()  # Set the model to evaluation mode
-
-    # Read images from local file
-    transform = transforms.ToTensor()
-    
-    image = Image.open('frontend/public/mnist/1/1_1.png').convert('L')
-    input_img1 = transform(image).to('cpu')
-
-    image = Image.open('frontend/public/mnist/2/2_1.png').convert('L')
-    input_img2 = transform(image).to('cpu')
-
-    # Run the model - output is image
-    interpolation = 0.9999999  # Interpolation factor (0.0 to 1.0)
-    interpolated_image = model(input_img1.unsqueeze(0), input_img2.unsqueeze(0), interpolation)
-
-    # Remove batch and channel dimensions for plotting
-    img1 = input_img1.squeeze().numpy()
-    img2 = input_img2.squeeze().numpy()
-    interp = interpolated_image.squeeze().detach().cpu().numpy()
-
-    # Plot the images in a row: img1, interpolated, img2
-    plt.figure(figsize=(9, 3))
-
-    plt.subplot(1, 3, 1)
-    plt.imshow(img1, cmap='gray')
-    plt.axis('off')
-    plt.title('Image 1')
-
-    plt.subplot(1, 3, 2)
-    plt.imshow(interp, cmap='gray')
-    plt.axis('off')
-    plt.title('Interpolated')
-
-    plt.subplot(1, 3, 3)
-    plt.imshow(img2, cmap='gray')
-    plt.axis('off')
-    plt.title('Image 2')
-
-    plt.tight_layout()
-    plt.show()
+    # Save the model
+    torch.save(interpolation_model.state_dict(), "interpolation_model.pth")
 
 if __name__ == "__main__":
+    # load_interpolation_model()
     save_interpolation_model()
-    # interpolation_model_example()
