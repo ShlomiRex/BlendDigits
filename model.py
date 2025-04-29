@@ -83,19 +83,13 @@ class VariationalAutoencoder(nn.Module):
         # Return x hat
         return x_reconstructed, mean, log_var
 
+class MNIST_VAE(VariationalAutoencoder):
+    def __init__(self):
+        super(MNIST_VAE, self).__init__(input_dim=1*28*28, hidden_dim=400, latent_dim=200)
+
+
 class InterpolationModel(nn.Module):
     def __init__(self, vae_model, device='cpu'):
-        # # Default parameters for the VAE model
-        # input_dim = 1 * 28 * 28
-        # hidden_dim = 400
-        # latent_dim = 200
-
-        # # Load the model
-        # vae = VariationalAutoencoder(input_dim, hidden_dim, latent_dim).to(device)
-        # vae.load_state_dict(torch.load("vae_model.pth", map_location=device))
-        # vae.eval() # Set the model to evaluation mode, we don't want to train it again
-        # vae.to(device)
-        # super(InterpolationModel, self).__init__(input_dim=input_dim, hidden_dim=hidden_dim, latent_dim=latent_dim, device=device)
         super(InterpolationModel, self).__init__()
         self.vae = vae_model
 
@@ -129,14 +123,20 @@ def save_interpolation_model():
     """
     Save the model to a file.
     """
-    model = InterpolationModel('cpu')
+    # Load VAE
+    vae = VariationalAutoencoder(input_dim=1*28*28, hidden_dim=400, latent_dim=200)
+    vae.load_state_dict(torch.load("vae_model.pth", map_location='cpu'))
+    vae.to('cpu')
+    vae.eval()
+
+    # Create InterpolationModel
+    model = InterpolationModel(vae)
+    model.to('cpu')
+    model.eval()
+
+    # Save interpolation model
     print("Saving interpolation model...")
     torch.save(model.state_dict(), "interpolation_model.pth")
-
-    # Print summary
-    from torchsummary import summary
-    print("Model summary:")
-    summary(model, [(1, 28, 28), (1, 28, 28), (1,)], device="cpu")
 
 def interpolation_model_example():
     from PIL import Image
@@ -187,33 +187,6 @@ def interpolation_model_example():
     plt.tight_layout()
     plt.show()
 
-def test():
-    input_dim = 1 * 28 * 28
-    hidden_dim = 400
-    latent_dim = 200
-
-    # Initialize the model
-    vae_model = VariationalAutoencoder(input_dim=input_dim, hidden_dim=hidden_dim, latent_dim=latent_dim)
-    vae_model.load_state_dict(torch.load('vae_model.pth'))
-    vae_model.eval()  # Set the VAE model to evaluation mode
-
-    # Initialize the interpolation model
-    interpolation_model = InterpolationModel(vae_model)
-
-    # Example usage
-    img1 = torch.randn(1, 28, 28)  # Example image tensor
-    img2 = torch.randn(1, 28, 28)
-    interpolation = 0.5  # 50% interpolation between img1 and img2
-
-    # Get the interpolated image
-    interpolated_img = interpolation_model(img1, img2, interpolation)
-
-    print(interpolated_img)
-
-    # Save the interpolation model
-    torch.save(interpolation_model.state_dict(), 'interpolation_model.pth')
-
 if __name__ == "__main__":
-    # save_interpolation_model()
+    save_interpolation_model()
     # interpolation_model_example()
-    test()

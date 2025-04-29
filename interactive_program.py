@@ -7,7 +7,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 from torch import Tensor
 import tkinter.messagebox as messagebox
-from model import InterpolationModel, VariationalAutoencoder
+from model import InterpolationModel, VariationalAutoencoder, MNIST_VAE
 
 device = 'cpu'
 print(f"Using device: {device}")
@@ -16,7 +16,7 @@ batch_size = 16
 # Load the variational autoencoder model
 vae_model_path = "vae_model.pth"
 print(f"Loading VAE model ('{vae_model_path}')...")
-my_vae = VariationalAutoencoder(input_dim=1*28*28, hidden_dim=400, latent_dim=200)
+my_vae = MNIST_VAE()
 my_vae.load_state_dict(torch.load("vae_model.pth", map_location=device))
 my_vae.to(device)
 my_vae.eval()
