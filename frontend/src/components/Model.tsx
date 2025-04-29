@@ -203,7 +203,7 @@ function Model() {
 
             {/* GitHub Link */}
             <a 
-                href="https://github.com/shlomidom/interactive_vae_digit_interpolation" 
+                href="https://github.com/ShlomiRex/BlendDigits" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 style={{
