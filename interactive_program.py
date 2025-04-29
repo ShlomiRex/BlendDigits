@@ -7,25 +7,31 @@ import tkinter as tk
 from PIL import Image, ImageTk
 from torch import Tensor
 import tkinter.messagebox as messagebox
+from model import InterpolationModel, VariationalAutoencoder
 
-from model import VariationalAutoencoder
-
-# Load the VAE model
-input_dim = 1 * 28 * 28
-hidden_dim = 400
-latent_dim = 200
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = 'cpu'
+print(f"Using device: {device}")
 batch_size = 16
 
-# Load the model
-print("Loading VAE model (vae_model.pth)...")
-vae = VariationalAutoencoder(input_dim, hidden_dim, latent_dim).to(device)
-vae.load_state_dict(torch.load("vae_model.pth", map_location=device))
-vae.eval()
+# Load the variational autoencoder model
+vae_model_path = "vae_model.pth"
+print(f"Loading VAE model ('{vae_model_path}')...")
+my_vae = VariationalAutoencoder(input_dim=1*28*28, hidden_dim=400, latent_dim=200)
+my_vae.load_state_dict(torch.load("vae_model.pth", map_location=device))
+my_vae.to(device)
+my_vae.eval()
+
+# Load the interpolation model
+model_path = "interpolation_model.pth"
+print(f"Loading Interpolation model ('{model_path}')...")
+interpolation_model = InterpolationModel(my_vae)
+interpolation_model.load_state_dict(torch.load(model_path, map_location=device))
+interpolation_model.to(device)
+interpolation_model.eval()
 
 # Check the model
 print("Model loaded successfully. Model structure:")
-print(vae)
+print(interpolation_model)
 
 # Load mnist data
 print("Loading MNIST dataset...")
@@ -97,27 +103,8 @@ class App:
         self.update_interpolation(value)
     
     def update_interpolation(self, interpolation: float):
-        # Add batch dimension of 1
-        img1_tensor = rearrange(self.img1_tensor, "c h w -> 1 c h w")
-        img2_tensor = rearrange(self.img2_tensor, "c h w -> 1 c h w")
-
-        # The model is loaded with CUDA probably, and image tensors are on CPU, we have to match either of them
-        img1_tensor = img1_tensor.to(device)
-        img2_tensor = img2_tensor.to(device)
-
-        # Get first latent vector
-        mean, log_var = vae.encode(img1_tensor)
-        z1 = vae.reparameterization(mean, torch.exp(0.5 * log_var))
-
-        # Get second latent vector
-        mean, log_var = vae.encode(img2_tensor)
-        z2 = vae.reparameterization(mean, torch.exp(0.5 * log_var))
-
-        # Interpolate between the two latent vectors
-        latent_vector = (1 - interpolation) * z1 + interpolation * z2 # Linear interpolation
-
-        # Decode interpolation to image
-        interpolated_image = vae.decode(latent_vector)
+        # Run the model - output is image
+        interpolated_image = interpolation_model(self.img1_tensor, self.img2_tensor, interpolation)
 
         # Update the image
         interpolated_image = interpolated_image.squeeze(0) # Remove the batch dimension only (keep channel dimension 1)

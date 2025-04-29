@@ -83,32 +83,39 @@ class VariationalAutoencoder(nn.Module):
         # Return x hat
         return x_reconstructed, mean, log_var
 
-class InterpolationModel(VariationalAutoencoder):
-    def __init__(self):
-        # Default parameters for the VAE model
-        input_dim = 1 * 28 * 28
-        hidden_dim = 400
-        latent_dim = 200
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+class InterpolationModel(nn.Module):
+    def __init__(self, vae_model, device='cpu'):
+        # # Default parameters for the VAE model
+        # input_dim = 1 * 28 * 28
+        # hidden_dim = 400
+        # latent_dim = 200
 
-        # Load the model
-        vae = VariationalAutoencoder(input_dim, hidden_dim, latent_dim).to(device)
-        vae.load_state_dict(torch.load("vae_model.pth", map_location=device))
-        vae.eval() # Set the model to evaluation mode, we don't want to train it again
-        vae.to(device)
-        super(InterpolationModel, self).__init__(input_dim=input_dim, hidden_dim=hidden_dim, latent_dim=latent_dim, device=device)
-
-        self.vae = vae
+        # # Load the model
+        # vae = VariationalAutoencoder(input_dim, hidden_dim, latent_dim).to(device)
+        # vae.load_state_dict(torch.load("vae_model.pth", map_location=device))
+        # vae.eval() # Set the model to evaluation mode, we don't want to train it again
+        # vae.to(device)
+        # super(InterpolationModel, self).__init__(input_dim=input_dim, hidden_dim=hidden_dim, latent_dim=latent_dim, device=device)
+        super(InterpolationModel, self).__init__()
+        self.vae = vae_model
 
     
     def forward(self, input_img1: torch.Tensor, input_img2: torch.Tensor, interpolation: float) -> torch.Tensor:
+        # Check if the input images size
+        assert input_img1.shape == (1, 28, 28), "Input image 1 must be of shape (1, 28, 28)"
+        assert input_img2.shape == (1, 28, 28), "Input image 2 must be of shape (1, 28, 28)"
+
+        # Add batch dimension
+        input_img1 = rearrange(input_img1, 'c h w -> 1 c h w') # Add batch dimension
+        input_img2 = rearrange(input_img2, 'c h w -> 1 c h w') # Add batch dimension
+
         # Encode the two images
-        mean1, log_var1 = self.encode(input_img1)
-        mean2, log_var2 = self.encode(input_img2)
+        mean1, log_var1 = self.vae.encode(input_img1)
+        mean2, log_var2 = self.vae.encode(input_img2)
 
         # Reparameterization trick for both images
-        z1 = self.reparameterization(mean1, torch.exp(0.5 * log_var1))
-        z2 = self.reparameterization(mean2, torch.exp(0.5 * log_var2))
+        z1 = self.vae.reparameterization(mean1, torch.exp(0.5 * log_var1))
+        z2 = self.vae.reparameterization(mean2, torch.exp(0.5 * log_var2))
 
         # Interpolate between the two latent vectors
         latent_vector = (1 - interpolation) * z1 + interpolation * z2 # Linear interpolation
@@ -118,13 +125,28 @@ class InterpolationModel(VariationalAutoencoder):
 
         return interpolated_image.squeeze(0) # Remove the batch dimension only (keep channel dimension 1)
 
-if __name__ == "__main__":
+def save_interpolation_model():
+    """
+    Save the model to a file.
+    """
+    model = InterpolationModel('cpu')
+    print("Saving interpolation model...")
+    torch.save(model.state_dict(), "interpolation_model.pth")
+
+    # Print summary
+    from torchsummary import summary
+    print("Model summary:")
+    summary(model, [(1, 28, 28), (1, 28, 28), (1,)], device="cpu")
+
+def interpolation_model_example():
     from PIL import Image
     import torchvision.transforms as transforms
     import matplotlib.pyplot as plt
 
-    # Example usage
-    model = InterpolationModel()
+    # Example usage of the InterpolationModel saved above
+    model = InterpolationModel('cpu')
+    model.load_state_dict(torch.load("interpolation_model.pth", map_location='cpu'))
+    model.eval()  # Set the model to evaluation mode
 
     # Read images from local file
     transform = transforms.ToTensor()
@@ -136,7 +158,7 @@ if __name__ == "__main__":
     input_img2 = transform(image).to('cpu')
 
     # Run the model - output is image
-    interpolation = 0.5  # Interpolation factor (0.0 to 1.0)
+    interpolation = 0.9999999  # Interpolation factor (0.0 to 1.0)
     interpolated_image = model(input_img1.unsqueeze(0), input_img2.unsqueeze(0), interpolation)
 
     # Remove batch and channel dimensions for plotting
@@ -164,3 +186,34 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.show()
+
+def test():
+    input_dim = 1 * 28 * 28
+    hidden_dim = 400
+    latent_dim = 200
+
+    # Initialize the model
+    vae_model = VariationalAutoencoder(input_dim=input_dim, hidden_dim=hidden_dim, latent_dim=latent_dim)
+    vae_model.load_state_dict(torch.load('vae_model.pth'))
+    vae_model.eval()  # Set the VAE model to evaluation mode
+
+    # Initialize the interpolation model
+    interpolation_model = InterpolationModel(vae_model)
+
+    # Example usage
+    img1 = torch.randn(1, 28, 28)  # Example image tensor
+    img2 = torch.randn(1, 28, 28)
+    interpolation = 0.5  # 50% interpolation between img1 and img2
+
+    # Get the interpolated image
+    interpolated_img = interpolation_model(img1, img2, interpolation)
+
+    print(interpolated_img)
+
+    # Save the interpolation model
+    torch.save(interpolation_model.state_dict(), 'interpolation_model.pth')
+
+if __name__ == "__main__":
+    # save_interpolation_model()
+    # interpolation_model_example()
+    test()
