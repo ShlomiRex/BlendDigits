@@ -7,57 +7,54 @@ import tkinter as tk
 from PIL import Image, ImageTk
 from torch import Tensor
 import tkinter.messagebox as messagebox
-from model import InterpolationModel, VariationalAutoencoder, MNIST_VAE
+from model import InterpolationModel, MNIST_VAE
+from typing import Tuple
 
-device = 'cpu'
-print(f"Using device: {device}")
 batch_size = 16
 
-# Load the variational autoencoder model
-vae_model_path = "vae_model.pth"
-print(f"Loading VAE model ('{vae_model_path}')...")
-my_vae = MNIST_VAE()
-my_vae.load_state_dict(torch.load("vae_model.pth", map_location=device))
-my_vae.to(device)
-my_vae.eval()
+def load_model() -> InterpolationModel:
+    device = 'cpu'
+    print(f"Using device: {device}")
 
-# Load the interpolation model
-model_path = "interpolation_model.pth"
-print(f"Loading Interpolation model ('{model_path}')...")
-interpolation_model = InterpolationModel(my_vae)
-interpolation_model.load_state_dict(torch.load(model_path, map_location=device))
-interpolation_model.to(device)
-interpolation_model.eval()
+    # Load the variational autoencoder model
+    vae_model_path = "vae_model.pth"
+    print(f"Loading VAE model ('{vae_model_path}')...")
+    my_vae = MNIST_VAE().to(device).eval()
+    my_vae.load_state_dict(torch.load("vae_model.pth", map_location=device))
+    print("VAE model loaded successfully.")
 
-# Check the model
-print("Model loaded successfully. Model structure:")
-print(interpolation_model)
+    # Load the interpolation model
+    interpolation_model = InterpolationModel(my_vae).to(device).eval()
 
-# Load mnist data
-print("Loading MNIST dataset...")
-transform = transforms.Compose([
-    transforms.ToTensor(),
-])
-mnist = MNIST(root="./data", train=False, transform=transform, download=True)
-mnist_loader = DataLoader(mnist, batch_size=batch_size, shuffle=True)
-print("MNIST dataset loaded successfully.")
+    # Check the model
+    print("Interpolation model structure:")
+    print(interpolation_model)
+    return interpolation_model
 
-def sample_image() -> Tensor:
-    # Sample a single image from the dataset
-    num_of_images = len(mnist)
-    i = torch.randint(low=0, high=(num_of_images-1), size=(1,)).item()
-    return mnist_loader.dataset[i][0]
+def load_mnist() -> Tuple[DataLoader, MNIST]:
+    # Load mnist data
+    print("Loading MNIST dataset...")
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+    ])
+    mnist = MNIST(root="./data", train=False, transform=transform, download=True)
+    mnist_loader = DataLoader(mnist, batch_size=batch_size, shuffle=True)
+    print("MNIST dataset loaded successfully.")
 
+    return mnist_loader, mnist
 # Create TkInter App
 class App:
     def __init__(self, root):
+        self.interpolation_model = load_model()
+        self.mnist_loader, self.mnist = load_mnist()
+
         self.root = root
         self.root.title("Interactive Interpolation")
         self.root.geometry("400x200")
 
         # Store the tensors of the images
-        self.img1_tensor = sample_image()
-        self.img2_tensor = sample_image()
+        self.img1_tensor = self.sample_image()
+        self.img2_tensor = self.sample_image()
         self.interpolated_tensor = None # Placeholder for the interpolated tensor
 
         # Display the images
@@ -72,9 +69,15 @@ class App:
         slider.set(0.5)
         slider.grid(row=2, column=0, columnspan=3, pady=5)
 
+    def sample_image(self) -> Tensor:
+        # Sample a single image from the dataset
+        num_of_images = len(self.mnist)
+        i = torch.randint(low=0, high=(num_of_images-1), size=(1,)).item()
+        return self.mnist_loader.dataset[i][0]
+
     def new_images(self):
-        self.img1_tensor = sample_image()
-        self.img2_tensor = sample_image()
+        self.img1_tensor = self.sample_image()
+        self.img2_tensor = self.sample_image()
 
         self.update_images()
         self.update_interpolation(self.slider_value)
@@ -104,7 +107,7 @@ class App:
     
     def update_interpolation(self, interpolation: float):
         # Run the model - output is image
-        interpolated_image = interpolation_model(self.img1_tensor, self.img2_tensor, interpolation)
+        interpolated_image = self.interpolation_model(self.img1_tensor, self.img2_tensor, interpolation)
 
         # Update the image
         interpolated_image = interpolated_image.squeeze(0) # Remove the batch dimension only (keep channel dimension 1)

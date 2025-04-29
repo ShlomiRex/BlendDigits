@@ -89,10 +89,9 @@ class MNIST_VAE(VariationalAutoencoder):
 
 
 class InterpolationModel(nn.Module):
-    def __init__(self, vae_model, device='cpu'):
+    def __init__(self, vae_model):
         super(InterpolationModel, self).__init__()
         self.vae = vae_model
-
     
     def forward(self, input_img1: torch.Tensor, input_img2: torch.Tensor, interpolation: float) -> torch.Tensor:
         # Check if the input images size
