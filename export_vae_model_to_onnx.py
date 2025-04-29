@@ -1,28 +1,25 @@
 import torch
 
-from interactive_program import VariationalAutoencoder
-
-# Load the VAE model
-input_dim = 1 * 28 * 28
-hidden_dim = 400
-latent_dim = 200
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-batch_size = 16
+from model import MNISTInterpolationModel
 
 # Load the model
-vae = VariationalAutoencoder(input_dim, hidden_dim, latent_dim).to(device)
-vae.load_state_dict(torch.load("vae_model.pth", map_location=device))
-vae.eval()
+model_path = "interpolation_model.pth"
+model = MNISTInterpolationModel(model_path).eval()
+
+# Print state dict
+print(model.state_dict)
 
 # Create dummy input
-dummy_input = torch.randn(1, 1, 28, 28)
+dummy_img1 = torch.randn(1, 28, 28)
+dummy_img2 = torch.randn(1, 28, 28)
+dummy_interpolation = 0.5
 
 # Export
 torch.onnx.export(
-    vae,
-    dummy_input,
+    model,
+    (dummy_img1, dummy_img2, dummy_interpolation),
     "model.onnx",
-    input_names=['input'],
+    input_names=['input_img1', 'input_img2', 'interpolation'],
     output_names=['output'],
     opset_version=11
 )

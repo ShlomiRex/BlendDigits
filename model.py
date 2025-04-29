@@ -120,7 +120,14 @@ class MNISTInterpolationModel(InterpolationModel):
     def __init__(self, vae_model_path: str, device='cpu'):
         # Load the variational autoencoder model
         my_vae = MNIST_VAE().to(device).eval()
-        my_vae.load_state_dict(torch.load(vae_model_path, map_location=device))
+
+
+        state_dict = torch.load(vae_model_path, map_location=device)
+        # Remove 'vae.' prefix from all keys
+        # Because we wrap the VAE model in new class (MNISTInterpolationModel) and save it, the keys in the state_dict have 'vae.' prefix
+        new_state_dict = {k.replace("vae.", ""): v for k, v in state_dict.items()}
+        # Load the state dict into the model
+        my_vae.load_state_dict(new_state_dict)
 
         # Load the interpolation model
         interpolation_model = InterpolationModel(my_vae).to(device).eval()
@@ -128,20 +135,17 @@ class MNISTInterpolationModel(InterpolationModel):
         super(MNISTInterpolationModel, self).__init__(interpolation_model.vae)
 
 def load_interpolation_model():
+    print("Loading MNISTInterpolationModel...")
     device = 'cpu'
-    # Load the interpolation model
     interpolation_model = MNISTInterpolationModel("vae_model.pth").to(device).eval()
-    print(interpolation_model)
+    interpolation_model.load_state_dict(torch.load("interpolation_model.pth", map_location=device))
 
 def save_interpolation_model():
+    print("Saving MNISTInterpolationModel...")
     device = 'cpu'
-    # Load the interpolation model
     interpolation_model = MNISTInterpolationModel("vae_model.pth").to(device).eval()
-    print(interpolation_model)
-
-    # Save the model
     torch.save(interpolation_model.state_dict(), "interpolation_model.pth")
 
 if __name__ == "__main__":
-    # load_interpolation_model()
     save_interpolation_model()
+    load_interpolation_model()
