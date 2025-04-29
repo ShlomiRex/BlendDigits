@@ -1,0 +1,8 @@
+scikit-learn
+torch
+torchvision
+einops
+matplotlib
+numpy
+scikit-learn
+torchsummary
