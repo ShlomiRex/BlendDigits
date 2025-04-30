@@ -389,6 +389,26 @@ function Model() {
                 BlendDigits is an interactive web demo that visualizes smooth transitions between two handwritten digits using a Variational Autoencoder (VAE). You select two MNIST images as input, and the model generates an interpolated digit in between. Everything runs locally in your browser — no server or cloud required.
             </div>
 
+            {/* Warning Box */}
+            <div style={{
+                maxWidth: '600px',
+                padding: '1rem',
+                textAlign: 'center',
+                color: '#ffd700',
+                fontSize: '0.95rem',
+                lineHeight: '1.6',
+                border: '1px solid rgba(255, 215, 0, 0.3)',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                marginTop: '0.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+            }}>
+                <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                <span>On some phones, the browser doesn't support Web Assembly (WASM). In order for correct operation of the demo, please open the demo from a computer.</span>
+            </div>
+
             {/* Footer Links */}
             <div style={{
                 display: 'flex',
