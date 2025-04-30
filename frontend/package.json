@@ -24,7 +24,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "deploy": "aws s3 sync build/ s3://blenddigits.shlomidom.com --delete --exclude \"static/media/*\" --exclude \"mnist/*\""
+    "deploy": "npm run build && aws s3 sync build/ s3://blenddigits.shlomidom.com --delete --exclude \"static/media/*\" --exclude \"mnist/*\""
   },
   "eslintConfig": {
     "extends": [
