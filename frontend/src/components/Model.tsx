@@ -8,8 +8,8 @@ function Model() {
     const ExternalLinkAltIcon = FaExternalLinkAlt as unknown as React.FC<{ size?: number }>;
 
     const [output, setOutput] = useState<any>(null);
-    const [inputImage1, setInputImage1] = useState<string>('/mnist/1/1_1.png');
-    const [inputImage2, setInputImage2] = useState<string>('/mnist/2/2_1.png');
+    const [inputImage1, setInputImage1] = useState<string>('');
+    const [inputImage2, setInputImage2] = useState<string>('');
     const [session, setSession] = useState<ort.InferenceSession | null>(null);
     const [interpolation, setInterpolation] = useState<number>(0.5);
 
@@ -41,6 +41,11 @@ function Model() {
         setInputImage1(newImage1);
         setInputImage2(newImage2);
     };
+
+    // Load random images when component mounts
+    useEffect(() => {
+        loadRandomImages();
+    }, []);
 
     // Function to load the ONNX model
     useEffect(() => {
