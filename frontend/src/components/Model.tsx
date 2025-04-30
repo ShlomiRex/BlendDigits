@@ -12,6 +12,7 @@ function Model() {
     const [inputImage2, setInputImage2] = useState<string>('');
     const [session, setSession] = useState<ort.InferenceSession | null>(null);
     const [interpolation, setInterpolation] = useState<number>(0.5);
+    const [showLoadingToast, setShowLoadingToast] = useState<boolean>(false);
 
     // Function to get a random number between min and max (inclusive)
     const getRandomInt = (min: number, max: number) => {
@@ -51,9 +52,11 @@ function Model() {
     useEffect(() => {
         async function loadModel() {
             console.log('Loading ONNX model...');
+            setShowLoadingToast(true);
             const modelSession = await ort.InferenceSession.create('model.onnx');
             console.log('Model loaded');
             setSession(modelSession);
+            setShowLoadingToast(false);
         }
 
         loadModel();
@@ -181,6 +184,19 @@ function Model() {
             color: '#fff',
             width: '100%'
         }}>
+            {/* Loading Toast */}
+            {showLoadingToast && (
+                <div className="toast-container">
+                    <span>Loading model...</span>
+                    <button 
+                        onClick={() => setShowLoadingToast(false)}
+                        className="toast-close-button"
+                    >
+                        ×
+                    </button>
+                </div>
+            )}
+
             {/* Title */}
             <h1 style={{ 
                 fontSize: '2.5rem',
